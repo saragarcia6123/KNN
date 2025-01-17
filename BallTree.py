@@ -33,16 +33,13 @@ class BallTree:
         self.generate_tree()
 
     def generate_tree(self):
-        self.root = self.create_ball_node(self.data)
+        indices = [i for i in range(self.n_samples)]
+        self.root = self.create_ball_node(indices)
+        self.split(indices, self.root)
 
-        # Select the 2 dimensions with the highest variance for splitting
-        variances = np.ptp(self.data, axis=0)
-        dim1, dim2 = np.argsort(variances)[-2:]
-        self.points = self.data[:, [dim1, dim2]]
+    def create_ball_node(self, indices: List) -> BallNode:
 
-        self.split(self.points, self.root)
-
-    def create_ball_node(self, points):
+        points = self.data[indices]
 
         # Calculate the center point by finding the middle point between the two furthest points
         centroid = np.mean(points, axis=0)
@@ -50,53 +47,54 @@ class BallTree:
         # Find the radius as the maximum distance from any point to the center
         radius = max(np.linalg.norm(point - centroid) for point in points)
 
-        return BallNode(centroid, radius, points)
+        return BallNode(centroid, radius, indices)
 
-    def split(self, points: np.ndarray, prev: BallNode):
+    def split(self, indices: List, prev: BallNode):
 
-        if len(points) <= self.leaf_size:
+        if len(indices) <= self.leaf_size:
             return
 
         # Add the current node to the previous node
-        current_node = self.create_ball_node(points)
+        current_node = self.create_ball_node(indices)
         prev.add_child(current_node)
 
         # Pick a random point
-        pivot = self.random_point(points)
+        pivot_index = self.random_point(indices)
 
         # Find the furthest point from pivot
-        distances_from_pivot = self.distances(pivot, points)
+        distances_from_pivot = self.distances(pivot_index, indices)
         point_a_index = np.argmax(distances_from_pivot)
-        point_a = points[point_a_index]
 
         # Find the furthest point from A
-        distances_from_a = self.distances(points, point_a)
+        distances_from_a = self.distances(indices, point_a_index)
         point_b_index = np.argmax(distances_from_a)
-        point_b = points[point_b_index]
+
+        point_a = self.data[point_a_index]
+        point_b = self.data[point_b_index]
 
         # Join point A and point B to form a line
         line = point_b - point_a
 
         # Project the points onto the line
-        projections = np.dot(points - point_a, line) / (np.linalg.norm(line)**2)
+        projections = np.dot(self.data[indices] - point_a, line) / (np.linalg.norm(line)**2)
 
         # Split along the median
         median = np.median(projections)
 
         # Form 2 spheres on either side of the median
-        s1_points = points[projections < median]
-        s2_points = points[projections >= median]
+        s1_indices = [indices[i] for i in range(len(indices)) if projections[i] <= median]
+        s2_indices = [indices[i] for i in range(len(indices)) if projections[i] > median]
 
         # Recursively split the points
-        self.split(s1_points, current_node)
-        self.split(s2_points, current_node)
+        self.split(s1_indices, current_node)
+        self.split(s2_indices, current_node)
 
     def random_point(self, x):
         r_index = np.random.randint(0, len(x))
         return x[r_index]
 
     def distances(self, x, y):
-        return self.distance_functions[self.metric](x, y)
+        return self.distance_functions[self.metric](self.data[x], self.data[y])
 
     def _draw_ball(self, ax, node: BallNode):
 
@@ -133,10 +131,12 @@ class BallTree:
         plt.show()
 
     def query(self, X: np.ndarray, k: int) -> List:
-        results = []
+        result_indices = []
         for x in X:
             result = self._query(x, k)
-            results.append(result)
+            result_indices.append(result)
+
+        results = [self.data[indices] for indices in result_indices]
 
         return results
 

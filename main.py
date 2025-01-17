@@ -39,7 +39,7 @@ plt.scatter(X_test[:, 0], X_test[:, 1], c='red')
 knn = KNeighborsClassifier(n_neighbors=3, algorithm='ball_tree', leaf_size=2, metric='euclidean')
 knn.fit(X, y)
 
-results = knn.kneighbors(X_test, n_neighbors=5)
+results = knn.kneighbors(X_test, n_neighbors=3)
 print(results[0])
 
 plt.show()
