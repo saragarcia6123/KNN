@@ -11,11 +11,5 @@ class BallNode:
     def add_child(self, child: Self.__class__):
         self.children.append(child)
 
-    def get_children(self):
-        return self.children
-
-    def get_points(self):
-        return self.points
-
     def is_leaf(self):
         return len(self.children) == 0

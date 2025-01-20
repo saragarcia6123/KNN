@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import numpy as np
 from matplotlib import pyplot as plt
 import metrics
@@ -62,11 +62,11 @@ class BallTree:
         pivot_index = self.random_point(indices)
 
         # Find the furthest point from pivot
-        distances_from_pivot = self.distances(pivot_index, indices)
+        distances_from_pivot = self.distances(self.data[pivot_index], self.data[indices])
         point_a_index = np.argmax(distances_from_pivot)
 
         # Find the furthest point from A
-        distances_from_a = self.distances(indices, point_a_index)
+        distances_from_a = self.distances(self.data[indices], self.data[point_a_index])
         point_b_index = np.argmax(distances_from_a)
 
         point_a = self.data[point_a_index]
@@ -94,9 +94,9 @@ class BallTree:
         return x[r_index]
 
     def distances(self, x, y):
-        return self.distance_functions[self.metric](self.data[x], self.data[y])
+        return self.distance_functions[self.metric](x, y)
 
-    def _draw_ball(self, ax, node: BallNode):
+    def _draw_ball(self, ax: plt.Axes, node: BallNode):
 
         if node.is_leaf():
             return
@@ -118,6 +118,8 @@ class BallTree:
 
     def visualize(self):
         fig, ax = plt.subplots()
+        fig: plt.Figure
+        ax: plt.Axes
 
         # Plot the data points from self.data (optional background data)
         ax.scatter(self.data[:, 0], self.data[:, 1], c='gray', alpha=0.5)
@@ -130,68 +132,48 @@ class BallTree:
         ax.set_title('Ball Tree Visualization')
         plt.show()
 
-    def query(self, X: np.ndarray, k: int) -> List:
-        result_indices = []
-        for x in X:
-            result = self._query(x, k)
-            result_indices.append(result)
+    def query_points(self, X: np.ndarray, k: int) -> List:
+        results = []
 
-        results = [self.data[indices] for indices in result_indices]
+        # Find the k-nearest neighbors for each query point
+        for x in X:
+            min_heap = []
+            self._query_point(x, self.root, k, min_heap)
+            k_nearest = [heappop(min_heap) for _ in range(k)]
+            indexes = [val for _, val in k_nearest]
+
+            # Get the corresponding data points for the indexes in the min_heap
+            points = [self.data[i] for i in indexes]
+            results.append(points)
 
         return results
 
-    def _query(self, point: np.ndarray, k: int) -> List:
+    def _query_point(self, x: np.ndarray, node: BallNode, k: int, min_heap: List[Tuple]):
 
-        # If the node has less than k points, return all the points in the node
-        if len(self.root.get_points()) <= k:
-            return [(np.linalg.norm(point - p), p) for p in self.root.get_points()]
+        # Base case: If the node contains no children
+        if len(node.children) == 0:
 
-        # Store the nearest k neighbors and their distances
-        min_heap = []
+            # Add its points to minheap
+            for p in node.points:
+                distance = np.linalg.norm(p - x)
+                heappush(min_heap, (-distance, p))
 
-        self._recursive_search(point, self.root, k, min_heap)
-
-        # Extract the k nearest neighbors from the heap
-        k_nearest = [heappop(min_heap) for _ in range(k)]
-        k_nearest = [point for _, point in k_nearest]
-
-        return k_nearest
-
-    def _recursive_search(self, point: np.ndarray, node: BallNode, k: int, min_heap: List):
-
-        if node.is_leaf():
-            for p in node.get_points():
-                # Calculate the distance between the query point and the current point
-                dist = np.linalg.norm(point - p)
-
-                # Add the distance and point to the min-heap
-                heappush(min_heap, (-dist, p))
-
+                # Only keep the k closest elements
                 if len(min_heap) > k:
-                    # If the heap has more than k elements, remove the element with the largest distance
                     heappop(min_heap)
 
-        children = node.get_children()
-
-        if not children:
             return
 
-        # Find the child whose centroid is closest to the query point
-        closest_child = min(children, key=lambda child: np.linalg.norm(point - child.centroid))
+        # Find the closest child centroid
+        closest_child = min(node.children, key=lambda child: np.linalg.norm(x - child.centroid))
 
-        # Search the closest child first
-        self._recursive_search(point, closest_child, k, min_heap)
+        self._query_point(x, closest_child, k, min_heap)
 
-        # After exploring the closest child, check the other child nodes
-        for child in children:
+        # Check if the centroid of the node
+        # is closer than the furthest current element in min_heap
+        for child in node.children:
             if child != closest_child:
-                # Check the current largest distance in the heap
                 largest_dist = -min_heap[0][0]
 
-                # Check the distance of the centroid of the child node to the query point
-                dist_to_centroid = np.linalg.norm(point - child.centroid)
-
-                # If the distance to the centroid is less than the current largest distance in the heap
-                # or if the heap has less than k elements, search the child node
-                if dist_to_centroid < largest_dist or len(min_heap) < k:
-                    self._recursive_search(point, child, k, min_heap)
+                if largest_dist > np.linalg.norm(x - child.centroid):
+                    self._query_point(x, child, k, min_heap)

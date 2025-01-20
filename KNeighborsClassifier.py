@@ -59,7 +59,7 @@ class KNeighborsClassifier:
     def kneighbors(self, X: np.ndarray, n_neighbors: int):
 
         if self.algorithm == 'ball_tree':
-            return self._tree.query(X, k=n_neighbors)
+            return self._tree.query_points(X, k=n_neighbors)
 
         elif self.algorithm == 'kd_tree':
             raise NotImplementedError()
