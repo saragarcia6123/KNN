@@ -56,10 +56,10 @@ class KNeighborsClassifier:
         else:
             raise ValueError("Invalid algorithm")
 
-    def kneighbors(self, X: np.ndarray, n_neighbors: int):
+    def kneighbors(self, X: np.ndarray):
 
         if self.algorithm == 'ball_tree':
-            return self._tree.query_points(X, k=n_neighbors)
+            return self._tree.query_points(X, k=self.n_neighbors)
 
         elif self.algorithm == 'kd_tree':
             raise NotImplementedError()

@@ -61,18 +61,17 @@ class BallTree:
         # Pick a random point
         pivot_index = self.random_point(indices)
 
-        # Find the furthest point from pivot
+        # Find the furthest point from the pivot
         distances_from_pivot = self.distances(self.data[pivot_index], self.data[indices])
-        point_a_index = np.argmax(distances_from_pivot)
+        point_a_index = indices[np.argmax(distances_from_pivot)]
+        point_a = self.data[point_a_index]
 
         # Find the furthest point from A
         distances_from_a = self.distances(self.data[indices], self.data[point_a_index])
-        point_b_index = np.argmax(distances_from_a)
-
-        point_a = self.data[point_a_index]
+        point_b_index = indices[np.argmax(distances_from_a)]
         point_b = self.data[point_b_index]
 
-        # Join point A and point B to form a line
+        # Join point A and point B to form a line vector
         line = point_b - point_a
 
         # Project the points onto the line
@@ -153,27 +152,44 @@ class BallTree:
         # Base case: If the node contains no children
         if len(node.children) == 0:
 
+            print(node.point_indices)
+            distances = self.distances(self.data[node.point_indices], x)
+            print(distances)
+
             # Add its points to minheap
-            for p in node.points:
-                distance = np.linalg.norm(p - x)
+            for p in node.point_indices:
+                distance = self.distances([self.data[p]], x)
                 heappush(min_heap, (-distance, p))
 
-                # Only keep the k closest elements
                 if len(min_heap) > k:
                     heappop(min_heap)
 
             return
 
         # Find the closest child centroid
-        closest_child = min(node.children, key=lambda child: np.linalg.norm(x - child.centroid))
-
+        child_distances = self.distances([child.centroid for child in node.children], x)
+        closest_child = node.children[np.argmin(child_distances)]
         self._query_point(x, closest_child, k, min_heap)
 
-        # Check if the centroid of the node
+        # Check if the point on radius coming from the center to the current point
         # is closer than the furthest current element in min_heap
+
+        current_max_dist = -min_heap[0][0]
+
         for child in node.children:
             if child != closest_child:
-                largest_dist = -min_heap[0][0]
 
-                if largest_dist > np.linalg.norm(x - child.centroid):
+                # Join the centroid of the child and the query point to form a line
+                line = x - child.centroid
+
+                # Find the unit vector of the line
+                line = line / np.linalg.norm(line)
+
+                # Find the point on the line that is at distance child.radius from child.centroid
+                point_on_line = child.centroid + (line * child.radius)
+
+                # Find the distance between the point on the line and the query point
+                dist = self.distances([point_on_line], x)
+
+                if current_max_dist > dist:
                     self._query_point(x, child, k, min_heap)
