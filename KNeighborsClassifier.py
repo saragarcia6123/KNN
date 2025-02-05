@@ -1,8 +1,7 @@
-from typing import Optional, Self
+from typing import Optional
 import numpy as np
 
-from BallTree import BallTree
-
+from KNN.BallTree.BallTree import BallTree
 
 class KNeighborsClassifier:
 

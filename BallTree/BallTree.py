@@ -1,23 +1,16 @@
 from typing import List, Tuple
 import numpy as np
 from matplotlib import pyplot as plt
-import metrics
-from BallNode import BallNode
 from heapq import heappush, heappop
+
+from KNN.BallTree.BallNode import BallNode
+from KNN.metrics import Metrics
 
 class BallTree:
 
-    valid_metrics = ['euclidean', 'minkowski', 'manhattan', 'chebyshev']
-    distance_functions = {
-        'euclidean': metrics.euclidean_distances,
-        'minkowski': metrics.minkowski_distances,
-        'manhattan': metrics.manhattan_distances,
-        'chebyshev': metrics.chebyshev_distances,
-    }
-
     def __init__(self,
         X: np.ndarray,
-        leaf_size: int = 40,
+        leaf_size: int = 2,
         metric: str = 'minkowski'
     ):
         if leaf_size < 2:
@@ -56,7 +49,9 @@ class BallTree:
 
         # Add the current node to the previous node
         current_node = self.create_ball_node(indices)
-        prev.add_child(current_node)
+
+        if prev != self.root:
+            prev.add_child(current_node)
 
         # Pick a random point
         pivot_index = self.random_point(indices)
@@ -92,8 +87,8 @@ class BallTree:
         r_index = np.random.randint(0, len(x))
         return x[r_index]
 
-    def distances(self, x, y):
-        return self.distance_functions[self.metric](x, y)
+    def distances(self, x, y) -> np.ndarray:
+        return Metrics.distance_functions[self.metric](x, y)
 
     def _draw_ball(self, ax: plt.Axes, node: BallNode):
 
@@ -151,10 +146,6 @@ class BallTree:
 
         # Base case: If the node contains no children
         if len(node.children) == 0:
-
-            print(node.point_indices)
-            distances = self.distances(self.data[node.point_indices], x)
-            print(distances)
 
             # Add its points to minheap
             for p in node.point_indices:
